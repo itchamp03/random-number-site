@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 
-// Starting stock prices and volatilities
 const STOCKS = [
   { symbol: 'AAPL', price: 190, volatility: 0.02 },
   { symbol: 'GOOG', price: 2800, volatility: 0.015 },
@@ -11,61 +10,58 @@ const STOCKS = [
   { symbol: 'MSFT', price: 320, volatility: 0.01 },
 ];
 
-// Deterministic pseudo-random generator
 function pseudoRandom(seed) {
   const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x); // Returns a number between 0 and 1
+  return x - Math.floor(x);
 }
 
-// Price simulator based on seed and volatility
 function simulatePrice(basePrice, volatility, seed) {
   const changePercent = (pseudoRandom(seed) * 2 - 1) * volatility;
   return +(basePrice * (1 + changePercent)).toFixed(2);
 }
 
-export async function getServerSideProps() {
-  const now = new Date();
-  const interval = 10 * 1000; // 10 seconds
-  const timestamp = Math.floor(now.getTime() / interval);
-
-  const stocks = STOCKS.map(stock => {
-    const seed = timestamp + stock.symbol.charCodeAt(0); // Unique seed per stock
-    const updatedPrice = simulatePrice(stock.price, stock.volatility, seed);
-    return {
-      ...stock,
-      price: updatedPrice,
-    };
-  });
-
-  return {
-    props: {
-      stocks,
-    },
-  };
-}
-
-export default function Home({ stocks }) {
+export default function Home() {
+  const [stocks, setStocks] = useState(STOCKS);
   const [history, setHistory] = useState(() =>
-    stocks.map(stock => ({
+    STOCKS.map(stock => ({
       symbol: stock.symbol,
-      prev: stock.price,
       high: stock.price,
       low: stock.price,
+      prev: stock.price,
     }))
   );
+  const [lastUpdated, setLastUpdated] = useState(new Date());
 
   useEffect(() => {
-    setHistory(prevHistory =>
-      stocks.map(stock => {
-        const prevEntry = prevHistory.find(h => h.symbol === stock.symbol);
-        const prev = prevEntry ? prevEntry.prev : stock.price;
-        const high = prevEntry ? Math.max(prevEntry.high, stock.price) : stock.price;
-        const low = prevEntry ? Math.min(prevEntry.low, stock.price) : stock.price;
-        return { symbol: stock.symbol, prev, high, low };
-      })
-    );
-    // eslint-disable-next-line
-  }, [stocks.map(s => s.price).join(',')]);
+    const interval = setInterval(() => {
+      const timestamp = Math.floor(Date.now() / 5000); // Updates every 5 seconds
+      const updatedStocks = STOCKS.map(stock => {
+        const seed = timestamp + stock.symbol.charCodeAt(0);
+        return {
+          ...stock,
+          price: simulatePrice(stock.price, stock.volatility, seed),
+        };
+      });
+
+      setStocks(updatedStocks);
+
+      setHistory(prevHistory =>
+        updatedStocks.map(stock => {
+          const prev = prevHistory.find(h => h.symbol === stock.symbol) || {};
+          return {
+            symbol: stock.symbol,
+            prev: stock.price,
+            high: Math.max(stock.price, prev.high ?? stock.price),
+            low: Math.min(stock.price, prev.low ?? stock.price),
+          };
+        })
+      );
+
+      setLastUpdated(new Date());
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const tableStyle = {
     margin: 'auto',
@@ -90,8 +86,11 @@ export default function Home({ stocks }) {
 
   return (
     <div style={{ fontFamily: 'Arial', textAlign: 'center', padding: '30px', background: '#f9fafb', minHeight: '100vh' }}>
-      <h1 style={{ color: '#222', marginBottom: 0 }}>Fake Stock Ticker</h1>
-      <p style={{ color: '#666', marginTop: 8 }}>Prices update every 10 seconds (same for everyone)</p>
+      <h1 style={{ color: '#222', marginBottom: 0 }}>📈 Fake Stock Ticker</h1>
+      <p style={{ color: '#666', marginTop: 8 }}>Prices update every 5 seconds</p>
+      <p style={{ color: '#999', fontSize: '14px', marginTop: '-10px' }}>
+        Last updated: {lastUpdated.toLocaleTimeString()}
+      </p>
       <table style={tableStyle}>
         <caption style={{ captionSide: 'bottom', fontSize: '16px', marginTop: '10px', color: '#888' }}>
           Simulated stock prices for demonstration purposes only.
@@ -117,7 +116,7 @@ export default function Home({ stocks }) {
             const color = percent > 0 ? '#1ca21c' : percent < 0 ? '#d32f2f' : '#888';
 
             return (
-              <tr key={stock.symbol} style={{ background: '#fff', transition: 'background 0.3s' }}>
+              <tr key={stock.symbol}>
                 <td style={cellStyle}>{stock.symbol}</td>
                 <td style={cellStyle}>
                   ${stock.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
