@@ -1,7 +1,5 @@
 // pages/index.js
 
-import { useEffect, useState } from 'react';
-
 const STOCKS = [
   { symbol: 'AAPL', price: 190, volatility: 0.02 },
   { symbol: 'GOOG', price: 2800, volatility: 0.015 },
@@ -20,49 +18,35 @@ function simulatePrice(basePrice, volatility, seed) {
   return +(basePrice * (1 + changePercent)).toFixed(2);
 }
 
-export default function Home() {
-  const [stocks, setStocks] = useState(STOCKS);
-  const [history, setHistory] = useState(() =>
-    STOCKS.map(stock => ({
-      symbol: stock.symbol,
-      high: stock.price,
-      low: stock.price,
-      prev: stock.price,
-    }))
-  );
-  const [lastUpdated, setLastUpdated] = useState(new Date());
+export async function getServerSideProps() {
+  const timestamp = Math.floor(Date.now() / 10000); // updates every 10 seconds
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const timestamp = Math.floor(Date.now() / 5000); // Updates every 5 seconds
-      const updatedStocks = STOCKS.map(stock => {
-        const seed = timestamp + stock.symbol.charCodeAt(0);
-        return {
-          ...stock,
-          price: simulatePrice(stock.price, stock.volatility, seed),
-        };
-      });
+  const updatedStocks = STOCKS.map(stock => {
+    const seed = timestamp + stock.symbol.charCodeAt(0);
+    const price = simulatePrice(stock.price, stock.volatility, seed);
+    return {
+      ...stock,
+      price,
+    };
+  });
 
-      setStocks(updatedStocks);
+  const history = updatedStocks.map(stock => ({
+    symbol: stock.symbol,
+    prev: stock.price,
+    high: stock.price,
+    low: stock.price,
+  }));
 
-      setHistory(prevHistory =>
-        updatedStocks.map(stock => {
-          const prev = prevHistory.find(h => h.symbol === stock.symbol) || {};
-          return {
-            symbol: stock.symbol,
-            prev: stock.price,
-            high: Math.max(stock.price, prev.high ?? stock.price),
-            low: Math.min(stock.price, prev.low ?? stock.price),
-          };
-        })
-      );
+  return {
+    props: {
+      stocks: updatedStocks,
+      history,
+      lastUpdated: new Date().toISOString(),
+    },
+  };
+}
 
-      setLastUpdated(new Date());
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
-
+export default function Home({ stocks, history, lastUpdated }) {
   const tableStyle = {
     margin: 'auto',
     fontSize: '20px',
@@ -87,9 +71,9 @@ export default function Home() {
   return (
     <div style={{ fontFamily: 'Arial', textAlign: 'center', padding: '30px', background: '#f9fafb', minHeight: '100vh' }}>
       <h1 style={{ color: '#222', marginBottom: 0 }}>📈 Fake Stock Ticker</h1>
-      <p style={{ color: '#666', marginTop: 8 }}>Prices update every 5 seconds</p>
+      <p style={{ color: '#666', marginTop: 8 }}>Prices update every 10 seconds</p>
       <p style={{ color: '#999', fontSize: '14px', marginTop: '-10px' }}>
-        Last updated: {lastUpdated.toLocaleTimeString()}
+        Last updated: {new Date(lastUpdated).toLocaleTimeString()}
       </p>
       <table style={tableStyle}>
         <caption style={{ captionSide: 'bottom', fontSize: '16px', marginTop: '10px', color: '#888' }}>
