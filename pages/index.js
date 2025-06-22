@@ -3,7 +3,7 @@
 export async function getServerSideProps() {
   // Calculate a new number every 15 seconds (same for everyone)
   const now = new Date();
-  const interval = 15 * 1000; // 15 seconds
+  const interval = 3 * 1000; // 15 seconds
   const timestamp = Math.floor(now.getTime() / interval); // Round to current interval
   const seed = timestamp; // Use this seed to get consistent number
 
